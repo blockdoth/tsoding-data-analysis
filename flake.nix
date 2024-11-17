@@ -15,16 +15,15 @@
     {
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
-          shellHook = "
-            echo 'Scala lives at ${pkgs.scala_2_12}'
-            echo 'SBT lives at ${pkgs.sbt}'
-            echo 'java lives at ${pkgs.jdk17}'
-
-          ";
-          JAVA_HOME = "${pkgs.jdk17}";
+          JAVA_HOME = "${pkgs.jdk8}";
           packages = with pkgs; [
             sbt
-            jdk17
+            scala_2_11
+            maven
+            jdk8
+            python3
+            python3Packages.matplotlib
+            python3Packages.numpy
           ];
         };
       });
