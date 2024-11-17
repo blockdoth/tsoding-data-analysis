@@ -21,16 +21,18 @@ pad_right = window_size // 2
 padded_counts = np.pad(counts, (pad_left, pad_right), mode='edge')
 smoothed_counts = np.convolve(padded_counts, np.ones(window_size)/window_size, mode='valid')
 
-plt.figure(figsize=(10, 6))
-plt.plot(times, smoothed_counts)
+normalized_counts = smoothed_counts / np.max(smoothed_counts)
 
-plt.title("Messages Sent by Time of Day")
-plt.xlabel("Time of Day")
-plt.ylabel("Message count")
+plt.figure(figsize=(10, 6))
+plt.plot(times, normalized_counts)
+
+plt.title("Server activity by time of day (Smoothed)")
+plt.xlabel("Time of Day (UTC)")
+plt.ylabel("Activity (Normalized)")
 
 plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
 # plt.gca().xaxis.set_major_locator(mdates.HourLocator(interval=1))  # Show one tick per hour
 # plt.gca().xaxis.set_minor_locator(mdates.MinuteLocator(interval=30))  # Show minor ticks every 30 minutes
 
-
+plt.grid(True, which='both', axis='x', color='gray', linestyle='-', linewidth=0.5)
 plt.show()
