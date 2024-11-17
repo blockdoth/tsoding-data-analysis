@@ -24,6 +24,7 @@
             python3
             python3Packages.matplotlib
             python3Packages.numpy
+            python3Packages.jupyterlab
           ];
         };
       });

@@ -1,11 +1,13 @@
 
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.rdd.RDD
+import org.apache.spark.rdd.RDD.rddToOrderedRDDFunctions
 import org.apache.spark.sql.SparkSession
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import java.io.PrintWriter
 import java.text.SimpleDateFormat
+import java.time.ZoneId
 
 
 class StudentTest extends FunSuite with BeforeAndAfterAll {
@@ -36,7 +38,7 @@ class StudentTest extends FunSuite with BeforeAndAfterAll {
 
 
   val paths = List(
-//    "#annoyncements.json",
+//    "#annoyncements.json"
 //    "#bot-shrine.json",
 //    "#debug-memes.json",
 //    "#dirty-code.json",
@@ -143,13 +145,115 @@ class StudentTest extends FunSuite with BeforeAndAfterAll {
       .collect()
 
     res.take(5).foreach(println)
-    val writer = new PrintWriter("data/messages_by_time_of_day.csv")
+    val writer = new PrintWriter("computed/messages_by_time_of_day.csv")
     writer.println("time,count")
     res.foreach { case (time, count) =>
       writer.println(s"$time,$count")
     }
     writer.close()
 
+  }
+
+  test("messagesByDayOfWeek") {
+    val format = new SimpleDateFormat("EEE")
+    val res = channels
+      .flatMap(m => m.messages
+        .map(t => (format.format(t.timestamp), 1))
+      )
+      .reduceByKey(_ + _)
+      .sortByKey()
+      .collect()
+
+    res.take(5).foreach(println)
+    val writer = new PrintWriter("computed/messages_by_day_of_week.csv")
+    writer.println("day,count")
+    res.foreach { case (time, count) =>
+      writer.println(s"$time,$count")
+    }
+    writer.close()
+
+  }
+
+  def getStremDays (channels:RDD[ChannelExtract]) = channels
+    .filter(_.channel.name == "annoyncements")
+    .flatMap(_.messages)
+    .filter(_.content.startsWith("\uD83D\uDD34 **LIVE ON TWITCH**"))
+    .map(_.timestamp.toLocalDateTime.toLocalDate)
+    .collect()
+
+  test("get strem dates"){
+    getStremDays(channels).foreach(println)
+  }
+
+
+  test("stremVSnonStrem") {
+    val stremDays = getStremDays(channels)
+
+    val timestamps = channels
+      .flatMap(m => m.messages
+        .map(t => t.timestamp)
+      )
+
+    val format = new SimpleDateFormat("HH:mm")
+    val splitMessages = timestamps.map(m => {
+        if (stremDays.contains(m.toLocalDateTime.toLocalDate))
+          (format.format(m), (1, 0))
+        else
+          (format.format(m), (0, 1))
+      })
+      .reduceByKey((a, b) => (a._1 + b._1, a._2 + b._2))
+      .sortByKey()
+      .collect()
+
+    val writer = new PrintWriter("computed/strem_vs_non_strem.csv")
+
+    writer.println("time,stremday,nonstremday")
+    splitMessages.foreach { case (time, (stremday, nonstremday)) =>
+      writer.println(s"$time,$stremday,$nonstremday")
+    }
+    writer.close()
+  }
+
+  test("messageOverTimeForEachChannel") {
+    val format = new SimpleDateFormat("yyyy-MM-dd")
+    val messages = channels
+      .flatMap(m => m.messages
+        .map(t => ((m.channel.name, format.format(t.timestamp)), 1))
+      )
+      .reduceByKey(_ + _)
+      .sortByKey()
+      .groupBy(_._1)
+      .map(g => (g._1._1, g._1._2, g._2.map(_._2).sum))
+      .collect()
+
+
+    val writer = new PrintWriter("computed/messagesOverTimeForEachChannel.csv")
+    writer.println("time,channel,count")
+
+    messages.foreach { case (channel, time, count) =>
+      writer.println(s"$time,$channel,$count")
+    }
+    writer.close()
+  }
+
+
+    test("fitVsBooks") {
+      val format = new SimpleDateFormat("yyyy-MM-dd")
+      val messages = channels
+        .filter(_.channel.name == "fit")
+        .flatMap(m => m.messages
+          .map(t => (format.format(t.timestamp), 1))
+        )
+        .reduceByKey(_ + _)
+        .sortByKey()
+        .collect()
+
+      val writer = new PrintWriter("computed/fit_vs_books.csv")
+      writer.println("time,count")
+      messages.foreach { case (time, count) =>
+        writer.println(s"$time,$count")
+      }
+      writer.close()
   }
 
   override def afterAll(): Unit = {
